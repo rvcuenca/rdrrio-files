@@ -1,0 +1,51 @@
+# (Down)Loading Required Packages
+
+```{r}
+pkg <- c("tidyverse")
+lapply(pkg, function(x) {
+  if (!require(x)) {
+    install.packages(x)
+  }
+})
+library(tidyverse)
+```
+
+# (Down)Loading XML Files (PLEASE READ THE ERROR MESSAGES if necessary)
+
+```{r}
+if (!dir.exists("rdrrio-xmls")) dir.create("rdrrio-xmls")
+xml_list <- list.files("rdrrio-xmls/",full.names = T)
+
+if (length(xml_list)==0) stop("Please DOWNLOAD FIRST the xml files from the following drive link AND SAVE them in the ./rdrrio-xmls folder: <https://drive.google.com/drive/folders/1yDGhXgaJeytKBxAT0XWYwlrdqrSUzCTZ>")
+```
+
+# Scrape URLs from the XML files
+
+```{r}
+xml_list %>% 
+  map(~{
+    .x %>% 
+      readLines(warn = FALSE) %>% paste0(collapse = "") %>% 
+      str_extract_all('(?<=<(url)>).*?(?=</\\1>)') %>% 
+      unlist %>% 
+      str_extract_all('(?<=<(loc|lastmod)>).*?(?=</\\1>)') %>% 
+      do.call(rbind,.) %>% 
+      as_tibble(.) %>% 
+      `colnames<-`(c('dPath','LastModified')) 
+  }) %>% 
+  bind_rows(.) %>% 
+  dtplyr::lazy_dt(.) -> links_dt
+
+links_dt
+```
+
+
+# Filter only links with files
+
+```{r}
+links_dt %>% 
+  filter(str_detect(LastModified,'^https://',negate = T) & str_detect(dPath,'\\.[[:alpha:]]+$')) -> list_docs 
+```
+
+# Your task now is download all the files using the links from list_docs
+
